@@ -4,23 +4,60 @@
 		"dockerfile": "Dockerfile",
 		"args": {
 			"DOCKER_MIRROR": "",
-			"APT_MIRROR": ""
+			"APT_MIRROR": "",
+			"USERNAME": "${localEnv:USER}"
 		}
 	},
+
+	// docker-outside-of-docker: installs the docker CLI + buildx
+	// (installDockerBuildx) and wires the host docker socket up for the
+	// non-root remote user (enableNonRootDocker), contributing the socket
+	// mount itself -- so plain `docker` and `docker buildx` work without
+	// sudo.
+	"features": {
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+			"enableNonRootDocker": "true",
+			"installDockerBuildx": "true"
+		}
+	},
+
 	"customizations": {
 		"vscode": {
 			"settings": {},
 			"extensions": [
-				"anthropic.claude-code"
+				"anthropic.claude-code",
+				"rust-lang.rust-analyzer",
+				"Vue.volar",
+				"exiasr.hadolint",
+				"redhat.vscode-yaml",
+				"timonwong.shellcheck"
 			]
 		}
 	},
-	"initializeCommand": "mkdir -p \"${localEnv:HOME}${localEnv:USERPROFILE}/.claude\"",
+	"initializeCommand": {
+		"mkdir-mounts": "mkdir -p \"${localEnv:HOME}${localEnv:USERPROFILE}/.claude\" \"${localEnv:HOME}${localEnv:USERPROFILE}/.ssh\" \"${localEnv:HOME}${localEnv:USERPROFILE}/.aws\"",
+		"history": "touch \"${localEnv:HOME}${localEnv:USERPROFILE}/.artifact-depot.bash_history\"",
+		"dev-aliases": "touch \"${localEnv:HOME}${localEnv:USERPROFILE}/.dev_aliases\"",
+		"env-snapshot": "env -i PATH=/usr/bin:/bin HOME=\"${localEnv:HOME}${localEnv:USERPROFILE}\" bash -c '. \"$HOME/.dev_aliases\" 2>/dev/null; env' | grep -vE '^(PWD|SHLVL|_|PATH|HOME|SHELL)=' > \"${localEnv:HOME}${localEnv:USERPROFILE}/.artifact-depot.devenv\" || true"
+	},
 	"mounts": [
+		"source=artifact-depot-workspace,target=/workspace,type=volume",
 		"source=artifact-depot-worktrees,target=/worktrees,type=volume",
-		"source=artifact-depot-build,target=/build,type=volume"
+		"source=artifact-depot-build,target=/build,type=volume",
+		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/${localEnv:USER}/.ssh,type=bind,readonly",
+		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude,target=/home/${localEnv:USER}/.claude,type=bind,consistency=cached",
+		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.aws,target=/home/${localEnv:USER}/.aws,type=bind,consistency=cached",
+		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.artifact-depot.bash_history,target=/home/${localEnv:USER}/.bash_history,type=bind,consistency=cached",
+		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.dev_aliases,target=/home/${localEnv:USER}/.bash_aliases,type=bind,readonly,consistency=cached"
 	],
+	"postCreateCommand": {
+		"volume-chown": "sudo chown $(id -u):$(id -g) /workspace /worktrees /build"
+	},
 	"appPort": [],
+	"runArgs": [
+		"--env-file=${localEnv:HOME}${localEnv:USERPROFILE}/.artifact-depot.devenv",
+		"--sysctl", "net.ipv6.conf.all.disable_ipv6=1"
+	],
 	"forwardPorts": [4000, 8080],
 	"portsAttributes": {
 		"4000": {
@@ -33,6 +70,11 @@
 		}
 	},
 	"privileged": true,
-	"workspaceMount": "source=${localWorkspaceFolder},target=/artifact-depot,type=bind",
-	"workspaceFolder": "/artifact-depot"
+	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace/artifact-depot,type=bind",
+	"workspaceFolder": "/workspace/artifact-depot",
+	"remoteEnv": {
+		"TERM": "${localEnv:TERM}"
+	},
+	"remoteUser": "${localEnv:USER}",
+	"updateRemoteUserUID": true
 }

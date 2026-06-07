@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "gitlab": {
+      "type": "http",
+      "url": "https://gitlab.mdh.quantum.com/api/v4/mcp"
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--headless",
+        "--browser",
+        "chromium"
+      ]
+    }
+  }
+}
